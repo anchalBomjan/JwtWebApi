@@ -2,6 +2,12 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.IdentityModel.Tokens;
+using System.IdentityModel.Tokens.Jwt;
+using System.Runtime.CompilerServices;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace JwtWebApi.Controllers
 {
@@ -11,6 +17,12 @@ namespace JwtWebApi.Controllers
     {
 
         public static User user = new User();
+        public readonly IConfiguration _configuration;
+        public AuthController(IConfiguration   configuration)
+        {
+            _configuration = configuration;
+            
+        }
 
         [HttpPost("register")]
         public ActionResult<User>Register(UserDto request)
@@ -42,8 +54,37 @@ namespace JwtWebApi.Controllers
                 return BadRequest("Wrong password.");
             }
 
-            return Ok(user);
+            string token = CreateToken(user);
+            return Ok(token);
 
+           
         }
+
+
+        private string CreateToken(User user)
+        {
+            List<Claim> claims = new List<Claim>
+    {
+        new Claim(ClaimTypes.Name, user.Username)
+    };
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(
+                _configuration.GetSection("AppSettings:Token").Value!));
+
+            var cred = new SigningCredentials(key, SecurityAlgorithms.HmacSha512Signature);
+
+            var token = new JwtSecurityToken(
+                claims: claims,
+                expires: DateTime.Now.AddDays(1),
+                signingCredentials: cred
+            );
+
+            var jwt = new JwtSecurityTokenHandler().WriteToken(token);
+            return jwt;
+        }
+
+
+
+
     }
 }
